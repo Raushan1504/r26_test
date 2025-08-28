@@ -1,0 +1,33 @@
+#Decoding gps data (in ubx format) from u-blox reciever. Working with UBX format and extracted relevant navigation data for use in the planner
+
+
+1)To decode we need to:-
+*Read the binary stream from the u-blox receiver (usually via serial port or USB).
+*Identify UBX messages by looking for sync chars (0xB5 0x62).
+*Parse the payload according to message type. Examples:
+*NAV-POSLLH : Latitude, Longitude, Height
+*NAV-VELNED : Velocity North/East/Down, Speed, Heading
+*NAV-TIMEUTC : GPS/UTC Time
+*Convert raw values into human-readable units:
+*After that we need to extract the relevant data like, position, current time, velocity, latitude etc..
+*We need pass  this data is passed into the planner module of your system.This enables the planner to make navigation decisions.
+
+
+2)Develop a path planning algorithm to traverse over a gridmap.
+  *Explore all the cells layer by layer
+  *Calculate all the possible distances from the starting point(including diagonally)
+  *Or use the Dijkstra’s Algorithm to find the lighest grids and calculate the shortest distance from start poitn
+
+3): Generate odometry commands to guide the rover along the generated path.
+Converted the path into motion commands (direction and timing) based on wheel parameters.
+*Convert the data into low level commands
+*Extract the directions from the low level commands
+*Also simultaneously convert it into motion primitives like left,right etcc. for the respective directions
+*Compute the wheel rotation/velocity using kinematics
+
+
+
+
+
+
+
