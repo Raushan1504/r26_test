@@ -9,10 +9,11 @@
 
 using namespace std;
 
+// Correct UBX NAV-POSLLH decoding
 static int NAV_POSLLH(uint8_t *buffer, classId *gps) {
-  memcpy(&gps->iTOW, buffer, 4);
-  memcpy(&gps->lon, buffer, 4);
-  memcpy(&gps->lat, buffer, 4);
+  memcpy(&gps->iTOW, buffer + 0, 4);
+  memcpy(&gps->lon, buffer + 4, 4);
+  memcpy(&gps->lat, buffer + 8, 4);
   memcpy(&gps->height, buffer + 12, 4);
   memcpy(&gps->hMSL, buffer + 16, 4);
   memcpy(&gps->hAcc, buffer + 20, 4);
@@ -20,6 +21,7 @@ static int NAV_POSLLH(uint8_t *buffer, classId *gps) {
   return 0;
 }
 
+// Convert hex string to bytes
 static vector<uint8_t> hexToBytes(const string &rawHex) {
   vector<uint8_t> bytes;
   stringstream ss(rawHex);
@@ -30,14 +32,20 @@ static vector<uint8_t> hexToBytes(const string &rawHex) {
   return bytes;
 }
 
+// Decode UBX packet
 int decodeUBX(uint8_t *buffer, classId *gps) {
-  // buffer points at class field
-  if (buffer[30] == 0x01 && buffer[32] == 0x02) { // Class = NAV, ID = POSLLH
-    return NAV_POSLLH(buffer + 4, gps);         // skip length
+  // buffer should point at the beginning of the UBX message (sync chars)
+  if (buffer[0] == 0xB5 && buffer[1] == 0x62) { // UBX sync chars
+    uint8_t msgClass = buffer[2];
+    uint8_t msgId = buffer[3];
+    if (msgClass == 0x01 && msgId == 0x02) { // NAV-POSLLH
+      return NAV_POSLLH(buffer + 6, gps); // payload starts at index 6
+    }
   }
-  return 1;
+  return 1; // not recognized
 }
 
+// Convert decoded GPS struct to readable GPS format
 GPS gpsFromData(const classId &gps) {
   GPS out;
   out.lat = gps.lat * 1e-7;
@@ -46,12 +54,14 @@ GPS gpsFromData(const classId &gps) {
   return out;
 }
 
+// Read file and extract GPS
 pair<GPS, GPS> readUbloxFile(const string &filename) {
   ifstream file(filename);
   if (!file.is_open()) {
     cerr << "Error: cannot open file " << filename << endl;
     return {{0.0, 0.0}, {0.0, 0.0}};
   }
+
   string rawStart, rawGoal;
   getline(file, rawStart);
   getline(file, rawGoal);
@@ -62,7 +72,7 @@ pair<GPS, GPS> readUbloxFile(const string &filename) {
   vector<uint8_t> startBytes = hexToBytes(rawStart);
   vector<uint8_t> goalBytes = hexToBytes(rawGoal);
 
-  classId gpsStartData, gpsGoalData;
+  classId gpsStartData{}, gpsGoalData{};
   decodeUBX(startBytes.data(), &gpsStartData);
   decodeUBX(goalBytes.data(), &gpsGoalData);
 
@@ -70,6 +80,5 @@ pair<GPS, GPS> readUbloxFile(const string &filename) {
   GPS goalGPS = gpsFromData(gpsGoalData);
 
   file.close();
-
   return {startGPS, goalGPS};
 }
